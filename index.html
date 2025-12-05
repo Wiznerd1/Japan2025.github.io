@@ -9,34 +9,41 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <style>
-  #map { height: 75vh; }
+  #map { height: 70vh; }
   #controls {
-    width: 80%;
+    width: 90%;
     margin: 10px auto;
     text-align: center;
   }
-  #controls select {
+  #controls input, #controls select {
     margin: 5px;
     padding: 5px;
   }
 </style>
-
 </head>
 <body>
 
 <div id="map"></div>
 
 <div id="controls">
-  <label>Date: </label>
-  <select id="daySelect"></select>
 
-  <label>Hour: </label>
+  <!-- Date Range -->
+  <label>Start Date:</label>
+  <input type="date" id="startDate">
+
+  <label>End Date:</label>
+  <input type="date" id="endDate">
+
+  <!-- Hour (still supported if you want combined filters) -->
+  <br><br>
+  <label>Hour:</label>
   <select id="hourSelect">
     <option value="">Any</option>
   </select>
 
   <br><br>
 
+  <!-- Slider -->
   <input id="timeSlider" type="range" min="0" max="0" value="0" style="width:100%;">
   <div id="timestamp" style="text-align:center; margin-top:5px;"></div>
 </div>
@@ -47,64 +54,67 @@ const TXT_URL = "https://raw.githubusercontent.com/Wiznerd1/Japan2025.github.io/
 const map = L.map('map').setView([1.298, 103.776], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// Data arrays
+// Raw data
 let timestamps = [];
 let coords = [];
 
+// Filtered data
 let filteredTimestamps = [];
 let filteredCoords = [];
 
+// UI controls
 let slider = document.getElementById("timeSlider");
 let tsLabel = document.getElementById("timestamp");
-let daySelect = document.getElementById("daySelect");
+let startDate = document.getElementById("startDate");
+let endDate = document.getElementById("endDate");
 let hourSelect = document.getElementById("hourSelect");
 
 let marker = null;
 let polyline = null;
 
-// Generate hour options (00–23)
+// Populate hour dropdown
 for (let h = 0; h < 24; h++) {
-  let hh = h.toString().padStart(2, '0');
+  const hh = h.toString().padStart(2, "0");
   hourSelect.innerHTML += `<option value="${hh}">${hh}:00</option>`;
 }
 
+// Load location log
 fetch(TXT_URL)
   .then(res => res.text())
   .then(text => {
     const lines = text.split("\n");
-    let uniqueDates = new Set();
+    const uniqueDates = new Set();
 
     lines.forEach(line => {
       line = line.trim();
       if (!line) return;
+
       const parts = line.split(": ");
       if (parts.length !== 2) return;
 
       const time = new Date(parts[0]);
       const [latStr, lonStr] = parts[1].split(", ");
-      const lat = parseFloat(latStr);
-      const lon = parseFloat(lonStr);
 
-      coords.push([lat, lon]);
+      coords.push([parseFloat(latStr), parseFloat(lonStr)]);
       timestamps.push(time);
 
       uniqueDates.add(parts[0].split(" ")[0]); // YYYY-MM-DD
     });
 
-    // populate day dropdown
-    uniqueDates = Array.from(uniqueDates).sort();
-    daySelect.innerHTML = `<option value="">Any</option>`;
-    uniqueDates.forEach(d => {
-      daySelect.innerHTML += `<option value="${d}">${d}</option>`;
-    });
+    // Pre-fill start & end date boxes
+    const dateList = [...uniqueDates].sort();
+    if (dateList.length > 0) {
+      startDate.value = dateList[0];
+      endDate.value = dateList[dateList.length - 1];
+    }
 
-    // After load, apply filters (default = all points)
     applyFilters();
   });
 
 function applyFilters() {
-  const selectedDay = daySelect.value;   // "" means ANY day
-  const selectedHour = hourSelect.value; // "" means ANY hour
+  const start = startDate.value ? new Date(startDate.value + "T00:00:00") : null;
+  const end = endDate.value ? new Date(endDate.value + "T23:59:59") : null;
+  const hourFilter = hourSelect.value; // "" means ANY
 
   filteredCoords = [];
   filteredTimestamps = [];
@@ -112,46 +122,44 @@ function applyFilters() {
   for (let i = 0; i < timestamps.length; i++) {
     const t = timestamps[i];
 
-    const day = t.toISOString().split("T")[0];
+    // Date filtering
+    if (start && t < start) continue;
+    if (end && t > end) continue;
+
+    // Optional hour filtering
     const hour = t.getHours().toString().padStart(2, '0');
+    if (hourFilter !== "" && hourFilter !== hour) continue;
 
-    if ((selectedDay === "" || selectedDay === day) &&
-        (selectedHour === "" || selectedHour === hour)) {
-
-      filteredCoords.push(coords[i]);
-      filteredTimestamps.push(t);
-    }
+    filteredCoords.push(coords[i]);
+    filteredTimestamps.push(t);
   }
 
   redrawMap();
 }
 
 function redrawMap() {
-  // Clear old polyline
-  if (polyline) {
-    map.removeLayer(polyline);
-  }
-
-  // Clear marker
+  // Remove old layers
+  if (polyline) map.removeLayer(polyline);
   if (marker) {
     map.removeLayer(marker);
     marker = null;
   }
 
-  if (filteredCoords.length > 0) {
-    polyline = L.polyline(filteredCoords, {color: 'blue', weight: 3}).addTo(map);
-    map.fitBounds(polyline.getBounds());
-
-    slider.max = filteredCoords.length - 1;
-    slider.min = 0;
-    slider.value = 0;
-
-    updateMarker(0);
-  } else {
-    tsLabel.textContent = "No data for this selection";
+  if (filteredCoords.length === 0) {
+    tsLabel.textContent = "No data for this date range";
     slider.max = 0;
     slider.value = 0;
+    return;
   }
+
+  polyline = L.polyline(filteredCoords, {color: 'blue', weight: 3}).addTo(map);
+  map.fitBounds(polyline.getBounds());
+
+  slider.min = 0;
+  slider.max = filteredCoords.length - 1;
+  slider.value = 0;
+
+  updateMarker(0);
 }
 
 function updateMarker(i) {
@@ -166,15 +174,14 @@ function updateMarker(i) {
   tsLabel.textContent = filteredTimestamps[i].toISOString();
 }
 
-// slider moves through filtered points only
 slider.addEventListener("input", () => {
   updateMarker(parseInt(slider.value));
 });
 
-// filters applied on dropdown change
-daySelect.addEventListener("change", applyFilters);
+// Filters trigger when UI changes
+startDate.addEventListener("change", applyFilters);
+endDate.addEventListener("change", applyFilters);
 hourSelect.addEventListener("change", applyFilters);
-
 </script>
 
 </body>
