@@ -83,13 +83,11 @@ arrows = L.polylineDecorator(polyline, {
         {
             offset: '5%',
             repeat: '10%',
-            symbol: L.polylineDecorator.ArrowHead.extend({
-                options: {
-                    pixelSize: 8,
-                    polygon: false,
-                    pathOptions: { stroke: true, color: 'red' }
-                }
-            })()
+            symbol: L.polylineDecorator.arrowHead({
+                pixelSize: 8,
+                polygon: false,
+                pathOptions: { stroke: true, color: 'red' }
+            })
         }
     ]
 }).addTo(map);
