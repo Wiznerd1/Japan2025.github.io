@@ -79,10 +79,14 @@ fetch(TXT_URL)
 
             // Add arrows along the polyline
             arrows = L.polylineDecorator(polyline, {
-                patterns: [
-                    {offset: '5%', repeat: '10%', symbol: L.Symbol.arrowHead({pixelSize: 8, polygon: false, pathOptions: {stroke: true, color: 'red'}})}
-                ]
-            }).addTo(map);
+    patterns: [
+        {offset: '5%', repeat: '10%', symbol: L.polylineDecorator.Symbol.arrowHead({
+            pixelSize: 8,
+            polygon: false,
+            pathOptions: {stroke: true, color: 'red'}
+        })}
+    ]
+}).addTo(map);
         }
 
         slider.max = coords.length - 1;
