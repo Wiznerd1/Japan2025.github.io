@@ -78,19 +78,12 @@ fetch(TXT_URL)
             polyline = L.polyline(coords, {color: 'blue', weight: 3}).addTo(map);
 
             // Add arrows along the polyline
-arrows = L.polylineDecorator(polyline, {
-    patterns: [
-        {
-            offset: '5%',
-            repeat: '10%',
-            symbol: L.polylineDecorator.arrowHead({
-                pixelSize: 8,
-                polygon: false,
-                pathOptions: { stroke: true, color: 'red' }
-            })
+            arrows = L.polylineDecorator(polyline, {
+                patterns: [
+                    {offset: '5%', repeat: '10%', symbol: L.Symbol.arrowHead({pixelSize: 8, polygon: false, pathOptions: {stroke: true, color: 'red'}})}
+                ]
+            }).addTo(map);
         }
-    ]
-}).addTo(map);
 
         slider.max = coords.length - 1;
         console.log("Slider max value set to:", slider.max);
