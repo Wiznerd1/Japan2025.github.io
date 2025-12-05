@@ -39,7 +39,10 @@ const map = L.map('map');
 // Load GPX
 let timestamps = [];
 let coords = [];
-
+  
+let slider = document.getElementById("timeSlider");
+let tsLabel = document.getElementById("timestamp");
+let marker = null;
 new L.GPX(GPX_URL, {
     async: true,
     marker_options: { startIconUrl: null, endIconUrl: null, shadowUrl: null },
@@ -62,9 +65,7 @@ new L.GPX(GPX_URL, {
 .addTo(map);
 
 // Slider + moving marker
-let slider = document.getElementById("timeSlider");
-let tsLabel = document.getElementById("timestamp");
-let marker = null;
+
 
 slider.addEventListener("input", () => {
     const i = parseInt(slider.value);
