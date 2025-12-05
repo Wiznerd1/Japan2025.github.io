@@ -138,10 +138,15 @@ function nextPhoto() { galleryIndex = (galleryIndex+1) % currentCluster.length; 
 function prevPhoto() { galleryIndex = (galleryIndex-1+currentCluster.length) % currentCluster.length; document.getElementById("galleryImg").src = currentCluster[galleryIndex]; }
 
 // --- Example: load images ---
-loadImages([
-  "https://pub-93172919f58b4130839761b05969c3cb.r2.dev/Photos/PXL_20251021_165834274.MP%5B1%5D.jpg",
-  "https://pub-93172919f58b4130839761b05969c3cb.r2.dev/Photos/PXL_20251021_165749377.MP%5B1%5D.jpg"
-]);
+fetch("https://raw.githubusercontent.com/Wiznerd1/Japan2025.github.io/main/image_links.txt")
+  .then(response => response.text())
+  .then(text => {
+    // Split by newlines and remove empty lines
+    const urls = text.split("\n").map(line => line.trim()).filter(line => line);
+    // Call loadImages with the array
+    loadImages(urls);
+  })
+  .catch(err => console.error("Failed to load image list:", err));
 </script>
 
 </body>
