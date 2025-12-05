@@ -8,11 +8,8 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<!-- Leaflet PolylineDecorator for arrows -->
-<script src="https://unpkg.com/leaflet-polylinedecorator@1.9.4/dist/leaflet.polylineDecorator.min.js"></script>
-
 <style>
-  #map { height: 80vh; }
+  #map { height: 75vh; }
   #controls {
     width: 80%;
     margin: 10px auto;
@@ -40,27 +37,32 @@
 
   <br><br>
 
-  <input id="timeSlider" type="range" min="0" max="100" value="0" style="width:100%;">
+  <input id="timeSlider" type="range" min="0" max="0" value="0" style="width:100%;">
   <div id="timestamp" style="text-align:center; margin-top:5px;"></div>
 </div>
 
 <script>
-const TXT_URL = "https://raw.githubusercontent.com/Wiznerd1/Japan2025.github.io/main/location_log.txt"; 
+const TXT_URL = "https://raw.githubusercontent.com/Wiznerd1/Japan2025.github.io/main/location_log.txt";
 
 const map = L.map('map').setView([1.298, 103.776], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
+// Data arrays
 let timestamps = [];
 let coords = [];
-let marker = null;
-let polyline = null;
+
+let filteredTimestamps = [];
+let filteredCoords = [];
 
 let slider = document.getElementById("timeSlider");
 let tsLabel = document.getElementById("timestamp");
 let daySelect = document.getElementById("daySelect");
 let hourSelect = document.getElementById("hourSelect");
 
-// Fill hours 0–23
+let marker = null;
+let polyline = null;
+
+// Generate hour options (00–23)
 for (let h = 0; h < 24; h++) {
   let hh = h.toString().padStart(2, '0');
   hourSelect.innerHTML += `<option value="${hh}">${hh}:00</option>`;
@@ -89,57 +91,90 @@ fetch(TXT_URL)
       uniqueDates.add(parts[0].split(" ")[0]); // YYYY-MM-DD
     });
 
-    // Populate day dropdown
+    // populate day dropdown
     uniqueDates = Array.from(uniqueDates).sort();
     daySelect.innerHTML = `<option value="">Any</option>`;
     uniqueDates.forEach(d => {
       daySelect.innerHTML += `<option value="${d}">${d}</option>`;
     });
 
-    if (coords.length > 0) {
-      const bounds = L.latLngBounds(coords);
-      map.fitBounds(bounds);
-      polyline = L.polyline(coords, {color: 'blue', weight: 3}).addTo(map);
-    }
-
-    slider.max = coords.length - 1;
+    // After load, apply filters (default = all points)
+    applyFilters();
   });
 
-// Update marker position
-function updateMarker(index) {
-  if (!coords[index]) return;
-  if (!marker) marker = L.marker(coords[index]).addTo(map);
-  else marker.setLatLng(coords[index]);
-  tsLabel.textContent = timestamps[index].toISOString();
-  slider.value = index;
-}
+function applyFilters() {
+  const selectedDay = daySelect.value;   // "" means ANY day
+  const selectedHour = hourSelect.value; // "" means ANY hour
 
-// Slider control
-slider.addEventListener("input", () => {
-  updateMarker(parseInt(slider.value));
-});
-
-// Helper: jump to first index matching day + hour
-function jumpToSelection() {
-  const selectedDay = daySelect.value;
-  const selectedHour = hourSelect.value;
+  filteredCoords = [];
+  filteredTimestamps = [];
 
   for (let i = 0; i < timestamps.length; i++) {
     const t = timestamps[i];
+
     const day = t.toISOString().split("T")[0];
     const hour = t.getHours().toString().padStart(2, '0');
 
     if ((selectedDay === "" || selectedDay === day) &&
         (selectedHour === "" || selectedHour === hour)) {
-      updateMarker(i);
-      return;
+
+      filteredCoords.push(coords[i]);
+      filteredTimestamps.push(t);
     }
+  }
+
+  redrawMap();
+}
+
+function redrawMap() {
+  // Clear old polyline
+  if (polyline) {
+    map.removeLayer(polyline);
+  }
+
+  // Clear marker
+  if (marker) {
+    map.removeLayer(marker);
+    marker = null;
+  }
+
+  if (filteredCoords.length > 0) {
+    polyline = L.polyline(filteredCoords, {color: 'blue', weight: 3}).addTo(map);
+    map.fitBounds(polyline.getBounds());
+
+    slider.max = filteredCoords.length - 1;
+    slider.min = 0;
+    slider.value = 0;
+
+    updateMarker(0);
+  } else {
+    tsLabel.textContent = "No data for this selection";
+    slider.max = 0;
+    slider.value = 0;
   }
 }
 
-// When dropdowns change, jump to matching time
-daySelect.addEventListener("change", jumpToSelection);
-hourSelect.addEventListener("change", jumpToSelection);
+function updateMarker(i) {
+  if (!filteredCoords[i]) return;
+
+  if (!marker) {
+    marker = L.marker(filteredCoords[i]).addTo(map);
+  } else {
+    marker.setLatLng(filteredCoords[i]);
+  }
+
+  tsLabel.textContent = filteredTimestamps[i].toISOString();
+}
+
+// slider moves through filtered points only
+slider.addEventListener("input", () => {
+  updateMarker(parseInt(slider.value));
+});
+
+// filters applied on dropdown change
+daySelect.addEventListener("change", applyFilters);
+hourSelect.addEventListener("change", applyFilters);
+
 </script>
 
 </body>
