@@ -46,7 +46,6 @@ let marker = null;
 let slider = document.getElementById("timeSlider");
 let tsLabel = document.getElementById("timestamp");
 let polyline = null;
-let arrows = null;
 
 // Fetch and parse the text file
 fetch(TXT_URL)
@@ -76,18 +75,10 @@ fetch(TXT_URL)
 
             // Draw polyline
             polyline = L.polyline(coords, {color: 'blue', weight: 3}).addTo(map);
-
-            // Add arrows along the polyline
-            arrows = L.polylineDecorator(polyline, {
-                patterns: [
-                    {offset: '5%', repeat: '10%', symbol: L.Symbol.arrowHead({pixelSize: 8, polygon: false, pathOptions: {stroke: true, color: 'red'}})}
-                ]
-            }).addTo(map);
         }
 
         slider.max = coords.length - 1;
         console.log("Slider max value set to:", slider.max);
-    });
 
 // Slider + moving marker
 slider.addEventListener("input", () => {
