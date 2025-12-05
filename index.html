@@ -43,6 +43,7 @@ let coords = [];
 let slider = document.getElementById("timeSlider");
 let tsLabel = document.getElementById("timestamp");
 let marker = null;
+  
 new L.GPX(GPX_URL, {
     async: true,
     marker_options: { startIconUrl: null, endIconUrl: null, shadowUrl: null },
