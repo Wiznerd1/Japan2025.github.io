@@ -2,14 +2,14 @@
 <html>
 <head>
 <meta charset="utf-8" />
-<title>GPX Time Slider Map</title>
+<title>Time Slider Map with Track Line</title>
 
 <!-- Leaflet -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<!-- Leaflet-GPX -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/gpx.min.js"></script>
+<!-- Leaflet PolylineDecorator for arrows -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-polylinedecorator/1.7.0/leaflet.polylineDecorator.min.js"></script>
 
 <style>
   #map { height: 90vh; }
@@ -30,44 +30,65 @@
 </div>
 
 <script>
-// --- Change this to your actual GPX file path in the repo ---
-const GPX_URL = "https://wiznerd1.github.io/Japan2025.github.io/track.gpx"; 
+// --- Change this to your actual text file URL ---
+const TXT_URL = "https://wiznerd1.github.io/Japan2025.github.io/track.txt"; 
 
 // Map
-const map = L.map('map');
+const map = L.map('map').setView([1.298, 103.776], 13);
 
-// Load GPX
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
 let timestamps = [];
 let coords = [];
-  
+let marker = null;
 let slider = document.getElementById("timeSlider");
 let tsLabel = document.getElementById("timestamp");
-let marker = null;
-  
-new L.GPX(GPX_URL, {
-    async: true,
-    marker_options: { startIconUrl: null, endIconUrl: null, shadowUrl: null },
-})
-.on('loaded', function(e) {
-    map.fitBounds(e.target.getBounds());
-})
-.on('addpoint', function(e) {
-    const lat = e.point.latlng.lat;
-    const lon = e.point.latlng.lng;
-    const time = e.point.time;
+let polyline = null;
+let arrows = null;
 
-    if (time) {
-        coords.push([lat, lon]);
-        timestamps.push(new Date(time));
-    }
+// Fetch and parse the text file
+fetch(TXT_URL)
+    .then(response => response.text())
+    .then(text => {
+        const lines = text.split("\n");
+        lines.forEach(line => {
+            line = line.trim();
+            if (!line) return;
+            const parts = line.split(": ");
+            if (parts.length !== 2) return;
+            const datetimeStr = parts[0];
+            const coordStr = parts[1];
+            const [latStr, lonStr] = coordStr.split(", ");
+            const lat = parseFloat(latStr);
+            const lon = parseFloat(lonStr);
+            const time = new Date(datetimeStr);
 
-    slider.max = coords.length - 1;
-})
-.addTo(map);
+            coords.push([lat, lon]);
+            timestamps.push(time);
+        });
+
+        // Fit map to all points
+        if (coords.length > 0) {
+            const bounds = L.latLngBounds(coords);
+            map.fitBounds(bounds);
+
+            // Draw polyline
+            polyline = L.polyline(coords, {color: 'blue', weight: 3}).addTo(map);
+
+            // Add arrows along the polyline
+            arrows = L.polylineDecorator(polyline, {
+                patterns: [
+                    {offset: '5%', repeat: '10%', symbol: L.Symbol.arrowHead({pixelSize: 8, polygon: false, pathOptions: {stroke: true, color: 'red'}})}
+                ]
+            }).addTo(map);
+        }
+
+        slider.max = coords.length - 1;
+    });
 
 // Slider + moving marker
-
-
 slider.addEventListener("input", () => {
     const i = parseInt(slider.value);
     if (!coords[i]) return;
