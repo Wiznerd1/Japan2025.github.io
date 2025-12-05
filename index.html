@@ -7,146 +7,93 @@
 <!-- Leaflet -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Leaflet PolylineDecorator for arrows -->
 <script src="https://unpkg.com/leaflet-polylinedecorator@1.9.4/dist/leaflet.polylineDecorator.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js"></script>
 
 <style>
   #map { height: 90vh; }
-  #slider-container { width: 80%; margin: 10px auto; }
-
-  .photo-btn { cursor:pointer; background:#fff; border:1px solid #333; padding:3px 6px; border-radius:4px; }
-  .gallery-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); justify-content:center; align-items:center; }
-  .gallery-modal img { max-width:90%; max-height:90%; }
-  .gallery-modal .close { position:absolute; top:20px; right:20px; color:white; font-size:24px; cursor:pointer; }
-  .gallery-modal .nav { position:absolute; top:50%; transform:translateY(-50%); font-size:48px; color:white; cursor:pointer; }
-  .gallery-modal .prev { left:20px; }
-  .gallery-modal .next { right:20px; }
+  #slider-container {
+    width: 80%;
+    margin: 10px auto;
+  }
 </style>
+
 </head>
 <body>
 
 <div id="map"></div>
+
 <div id="slider-container">
   <input id="timeSlider" type="range" min="0" max="100" value="0" style="width:100%;">
   <div id="timestamp" style="text-align:center; margin-top:5px;"></div>
 </div>
 
-<!-- Modal for gallery -->
-<div id="galleryModal" class="gallery-modal">
-  <span class="close" onclick="closeGallery()">×</span>
-  <span class="nav prev" onclick="prevPhoto()">‹</span>
-  <span class="nav next" onclick="nextPhoto()">›</span>
-  <img id="galleryImg" src="">
-</div>
-
 <script>
-// --- Map setup ---
+// --- Change this to your actual text file URL ---
+const TXT_URL = "https://raw.githubusercontent.com/Wiznerd1/Japan2025.github.io/main/location_log.txt"; 
+
+// Map
 const map = L.map('map').setView([1.298, 103.776], 13);
+
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
-// Track data
-const TXT_URL = "https://raw.githubusercontent.com/Wiznerd1/Japan2025.github.io/main/location_log.txt";
-let timestamps = [], coords = [], marker = null, slider = document.getElementById("timeSlider"), tsLabel = document.getElementById("timestamp"), polyline = null;
+let timestamps = [];
+let coords = [];
+let marker = null;
+let slider = document.getElementById("timeSlider");
+let tsLabel = document.getElementById("timestamp");
+let polyline = null;
 
-// Photo clusters
-let photoClusters = [], galleryIndex = 0, currentCluster = [];
-
-// --- Fetch track data ---
+// Fetch and parse the text file
 fetch(TXT_URL)
-  .then(res => res.text())
-  .then(text => {
-    const lines = text.split("\n");
-    lines.forEach(line => {
-      line = line.trim();
-      if (!line) return;
-      const parts = line.split(": ");
-      if (parts.length !== 2) return;
-      const [latStr, lonStr] = parts[1].split(", ");
-      coords.push([parseFloat(latStr), parseFloat(lonStr)]);
-      timestamps.push(new Date(parts[0]));
-    });
+    .then(response => response.text())
+    .then(text => {
+        const lines = text.split("\n");
+        lines.forEach(line => {
+            line = line.trim();
+            if (!line) return;
+            const parts = line.split(": ");
+            if (parts.length !== 2) return;
+            const datetimeStr = parts[0];
+            const coordStr = parts[1];
+            const [latStr, lonStr] = coordStr.split(", ");
+            const lat = parseFloat(latStr);
+            const lon = parseFloat(lonStr);
+            const time = new Date(datetimeStr);
 
-    if (coords.length > 0) {
-      const bounds = L.latLngBounds(coords);
-      map.fitBounds(bounds);
-      polyline = L.polyline(coords, {color:'blue', weight:3}).addTo(map);
-      slider.max = coords.length - 1;
-    }
-  });
+            coords.push([lat, lon]);
+            timestamps.push(time);
+        });
 
-// --- Slider functionality ---
+        // Fit map to all points
+        if (coords.length > 0) {
+            const bounds = L.latLngBounds(coords);
+            map.fitBounds(bounds);
+
+            // Draw polyline
+            polyline = L.polyline(coords, {color: 'blue', weight: 3}).addTo(map);
+        }
+
+        slider.max = coords.length - 1;
+        console.log("Slider max value set to:", slider.max);
+      });
+
+// Slider + moving marker
 slider.addEventListener("input", () => {
-  const i = parseInt(slider.value);
-  if (!coords[i]) return;
-  if (!marker) marker = L.marker(coords[i]).addTo(map);
-  else marker.setLatLng(coords[i]);
-  tsLabel.textContent = timestamps[i] ? timestamps[i].toISOString() : "";
+    const i = parseInt(slider.value);
+    if (!coords[i]) return;
+
+    if (marker === null) {
+        marker = L.marker(coords[i]).addTo(map);
+    } else {
+        marker.setLatLng(coords[i]);
+    }
+
+    tsLabel.textContent = timestamps[i] ? timestamps[i].toISOString() : "";
 });
-
-// --- Load images ---
-async function loadImages(imageUrls) {
-  for (let url of imageUrls) {
-    const img = new Image();
-    img.src = url;
-    await new Promise(r => img.onload = r);
-
-    EXIF.getData(img, function() {
-      const lat = EXIF.getTag(this, "GPSLatitude");
-      const lon = EXIF.getTag(this, "GPSLongitude");
-      const latRef = EXIF.getTag(this, "GPSLatitudeRef") || "N";
-      const lonRef = EXIF.getTag(this, "GPSLongitudeRef") || "E";
-      if (!lat || !lon) return;
-
-      const latDec = (lat[0] + lat[1]/60 + lat[2]/3600) * (latRef === "N" ? 1 : -1);
-      const lonDec = (lon[0] + lon[1]/60 + lon[2]/3600) * (lonRef === "E" ? 1 : -1);
-
-      let cluster = photoClusters.find(c => getDistance(c.lat,c.lon,latDec,lonDec) < 0.05);
-      if (cluster) cluster.photos.push(url);
-      else photoClusters.push({lat:latDec, lon:lonDec, photos:[url]});
-    });
-  }
-
-  // Add photo markers after all images loaded
-  setTimeout(() => {
-    photoClusters.forEach(c => {
-      const m = L.marker([c.lat,c.lon]).addTo(map);
-      m.bindPopup(`<button class="photo-btn" onclick="openGallery(${photoClusters.indexOf(c)})">${c.photos.length} photo(s)</button>`);
-    });
-  }, 200); // small delay to ensure EXIF processing finished
-}
-
-// --- Distance in km ---
-function getDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = (lat2-lat1)*Math.PI/180;
-  const dLon = (lon2-lon1)*Math.PI/180;
-  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-  return R*2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-}
-
-// --- Gallery modal functions ---
-function openGallery(index) {
-  currentCluster = photoClusters[index].photos;
-  galleryIndex = 0;
-  document.getElementById("galleryModal").style.display = "flex";
-  document.getElementById("galleryImg").src = currentCluster[galleryIndex];
-}
-function closeGallery() { document.getElementById("galleryModal").style.display = "none"; }
-function nextPhoto() { galleryIndex = (galleryIndex+1) % currentCluster.length; document.getElementById("galleryImg").src = currentCluster[galleryIndex]; }
-function prevPhoto() { galleryIndex = (galleryIndex-1+currentCluster.length) % currentCluster.length; document.getElementById("galleryImg").src = currentCluster[galleryIndex]; }
-
-// --- Example: load images ---
-fetch("https://raw.githubusercontent.com/Wiznerd1/Japan2025.github.io/main/image_links.txt")
-  .then(response => response.text())
-  .then(text => {
-    // Split by newlines and remove empty lines
-    const urls = text.split("\n").map(line => line.trim()).filter(line => line);
-    // Call loadImages with the array
-    loadImages(urls);
-  })
-  .catch(err => console.error("Failed to load image list:", err));
 </script>
 
 </body>
