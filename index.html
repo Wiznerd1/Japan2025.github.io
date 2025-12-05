@@ -51,6 +51,7 @@
 </div>
 
 <script>
+const BOUNDS = [25, 90, 46, 145];
 const TXT_URL = "https://raw.githubusercontent.com/Wiznerd1/Japan2025.github.io/main/location_log.txt";
 
 // Leaflet map
@@ -143,17 +144,22 @@ function applyFilters() {
   for (let i = 0; i < timestamps.length; i++) {
     const t = timestamps[i];
     const hour = t.getHours();
+    const [lat, lon] = coords[i];
 
-    // Filter by date range
+    // Date range filter
     if (startDateVal && t < startDateVal) continue;
     if (endDateVal && t > endDateVal) continue;
 
-    // Filter by hour range
+    // Hour range filter
     if (hour < startHour || hour > endHour) continue;
 
-    filteredCoords.push(coords[i]);
+    // --- LOCATION FILTER ---
+    if (lat < BOUNDS[0] || lat > BOUNDS[1] || lon < BOUNDS[2] || lon > BOUNDS[3]) continue;
+
+    filteredCoords.push([lat, lon]);
     filteredTimestamps.push(t);
-  }
+}
+
 
   redrawMap();
 }
