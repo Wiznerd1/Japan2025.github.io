@@ -19,6 +19,22 @@
     margin: 5px;
     padding: 5px;
   }
+#timestamp {
+  font-size: 1.4em;
+  font-weight: bold;
+  margin-top: 10px;
+  line-height: 1.4;
+}
+
+.date-part {
+  color: #444;
+  font-size: 1.2em;
+}
+
+.time-part {
+  color: #000;
+  font-size: 1.6em;
+}
 </style>
 </head>
 <body>
@@ -205,7 +221,20 @@ function updateMarker(i) {
   if (!marker) marker = L.marker(filteredCoords[i]).addTo(map);
   else marker.setLatLng(filteredCoords[i]);
 
-  tsLabel.textContent = filteredTimestamps[i].toISOString();
+  const t = filteredTimestamps[i];
+
+  // Separate date and time for readability
+  const dateStr = t.toLocaleDateString();
+  const timeStr = t.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+
+  tsLabel.innerHTML = `
+    <div class="date-part">${dateStr}</div>
+    <div class="time-part">${timeStr}</div>
+  `;
 }
 
 // Slider control
