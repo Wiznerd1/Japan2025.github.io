@@ -156,8 +156,14 @@ function applyFilters() {
     // --- LOCATION FILTER ---
     if (lat < BOUNDS[0] || lat > BOUNDS[1] || lon < BOUNDS[2] || lon > BOUNDS[3]) continue;
 
-    filteredCoords.push([lat, lon]);
-    filteredTimestamps.push(t);
+    // Skip if location is identical to previous accepted point
+if (filteredCoords.length > 0) {
+    const [prevLat, prevLon] = filteredCoords[filteredCoords.length - 1];
+    if (prevLat === lat && prevLon === lon) continue;
+}
+
+filteredCoords.push([lat, lon]);
+filteredTimestamps.push(t);
 }
 
 
