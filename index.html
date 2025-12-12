@@ -2,39 +2,21 @@
 <html>
 <head>
 <meta charset="utf-8" />
-<title>Time Slider Map with Track Line</title>
+<title>Map with Drive Image EXIF</title>
 
 <!-- Leaflet -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+<!-- EXIF reader -->
+<script src="https://unpkg.com/exifr/dist/lite.umd.js"></script>
+
 <style>
   #map { height: 70vh; }
-  #controls {
-    width: 90%;
-    margin: 10px auto;
-    text-align: center;
-  }
-  #controls input {
-    margin: 5px;
-    padding: 5px;
-  }
-#timestamp {
-  font-size: 1.4em;
-  font-weight: bold;
-  margin-top: 10px;
-  line-height: 1.4;
-}
-
-.date-part {
-  color: #444;
-  font-size: 1.2em;
-}
-
-.time-part {
-  color: #000;
-  font-size: 1.6em;
-}
+  #controls { width: 90%; margin: 10px auto; text-align: center; }
+  #timestamp { font-size: 1.4em; font-weight: bold; margin-top: 10px; }
+  .date-part { color: #444; font-size: 1.2em; }
+  .time-part { color: #000; font-size: 1.6em; }
 </style>
 </head>
 <body>
@@ -42,194 +24,175 @@
 <div id="map"></div>
 
 <div id="controls">
-
-  <!-- Date Range -->
   <label>Start Date:</label>
   <input type="date" id="startDate">
-
   <label>End Date:</label>
   <input type="date" id="endDate">
-
   <br><br>
 
-  <!-- Hour Range -->
   <label>Start Hour:</label>
   <input type="number" id="startHour" min="0" max="23" value="0">
-
   <label>End Hour:</label>
   <input type="number" id="endHour" min="0" max="23" value="23">
-
   <br><br>
 
-  <!-- Slider -->
   <input id="timeSlider" type="range" min="0" max="0" value="0" style="width:100%;">
-  <div id="timestamp" style="text-align:center; margin-top:5px;"></div>
+  <div id="timestamp"></div>
 </div>
 
 <script>
+/* ---------- CONFIG ---------- */
 const BOUNDS = [25, 90, 46, 145];
-const TXT_URL = "https://raw.githubusercontent.com/Wiznerd1/Japan2025.github.io/main/location_log.txt";
+const LOCATION_LOG_URL = "https://raw.githubusercontent.com/Wiznerd1/Japan2025.github.io/main/location_log.txt";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyUzgCzSz7j0uBhJnUbZnc-zgkRfrCbL57u5S_tAlm9-j8DjvA7yF_3qn3-ie4AETuU/exec";
 
-// Leaflet map
-const map = L.map('map').setView([1.298, 103.776], 13);
+/* ---------- MAP ---------- */
+const map = L.map('map').setView([35, 135], 6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// Raw data arrays
-let coords = [];
-let timestamps = [];
+/* ---------- DATA ---------- */
+let trackPoints = [];
+let imagePoints = [];
+let allPoints = [];
+let filteredPoints = [];
 
-// Filtered arrays
-let filteredCoords = [];
-let filteredTimestamps = [];
+const slider = document.getElementById("timeSlider");
+const tsLabel = document.getElementById("timestamp");
+const startDateInput = document.getElementById("startDate");
+const endDateInput = document.getElementById("endDate");
+const startHourInput = document.getElementById("startHour");
+const endHourInput = document.getElementById("endHour");
 
-// Markers
-let marker = null;
-let startMarker = null;
-let endMarker = null;
-let polyline = null;
+let movingMarker = null;
 
-// Custom icons for start/end
-const startIcon = L.icon({
-    iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png",
-    shadowUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-shadow.png",
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41]
-});
+/* -----------------------------------------------------
+   1. Load Track Log
+----------------------------------------------------- */
+async function loadTrackPoints() {
+  const text = await fetch(LOCATION_LOG_URL).then(r => r.text());
+  const lines = text.split("\n");
 
-const endIcon = L.icon({
-    iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
-    shadowUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-shadow.png",
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41]
-});
+  for (let line of lines) {
+    line = line.trim();
+    if (!line) continue;
 
-// UI elements
-let slider = document.getElementById("timeSlider");
-let tsLabel = document.getElementById("timestamp");
-let startDateInput = document.getElementById("startDate");
-let endDateInput = document.getElementById("endDate");
-let startHourInput = document.getElementById("startHour");
-let endHourInput = document.getElementById("endHour");
+    const [timeStr, coordsStr] = line.split(": ");
+    if (!coordsStr) continue;
 
-// Load the location log
-fetch(TXT_URL)
-  .then(res => res.text())
-  .then(text => {
-    const lines = text.split("\n");
-    const uniqueDates = new Set();
+    const [lat, lon] = coordsStr.split(", ").map(Number);
 
-    lines.forEach(line => {
-      line = line.trim();
-      if (!line) return;
-      const parts = line.split(": ");
-      if (parts.length !== 2) return;
-
-      const time = new Date(parts[0]);
-      const [latStr, lonStr] = parts[1].split(", ");
-
-      coords.push([parseFloat(latStr), parseFloat(lonStr)]);
-      timestamps.push(time);
-
-      uniqueDates.add(parts[0].split(" ")[0]);
+    trackPoints.push({
+      lat,
+      lon,
+      time: new Date(timeStr),
+      type: "track",
+      url: null
     });
+  }
+}
 
-    // Pre-fill date inputs
-    const dateList = [...uniqueDates].sort();
-    if (dateList.length > 0) {
-      startDateInput.value = dateList[0];
-      endDateInput.value = dateList[dateList.length - 1];
+/* -----------------------------------------------------
+   2. Load image URLs + extract EXIF
+----------------------------------------------------- */
+async function loadImageExif() {
+  const urls = await fetch(APPS_SCRIPT_URL).then(r => r.json());
+
+  for (let url of urls) {
+    try {
+      // Fetch EXIF from the image
+      const exif = await exifr.parse(url, { gps: true });
+
+      if (!exif || !exif.latitude || !exif.longitude) continue;
+
+      imagePoints.push({
+        lat: exif.latitude,
+        lon: exif.longitude,
+        time: exif.DateTimeOriginal ? new Date(exif.DateTimeOriginal) : new Date(),
+        type: "image",
+        url: url
+      });
+
+    } catch (e) {
+      console.warn("EXIF error for:", url, e);
     }
+  }
+}
 
-    applyFilters();
-  });
+/* -----------------------------------------------------
+   Merge + sort
+----------------------------------------------------- */
+function mergePoints() {
+  allPoints = [...trackPoints, ...imagePoints];
+  allPoints.sort((a, b) => a.time - b.time);
+}
 
-// Filter function
+/* -----------------------------------------------------
+   Filtering
+----------------------------------------------------- */
 function applyFilters() {
-  const startDateVal = startDateInput.value ? new Date(startDateInput.value + "T00:00:00") : null;
-  const endDateVal = endDateInput.value ? new Date(endDateInput.value + "T23:59:59") : null;
+  const startDate = startDateInput.value ? new Date(startDateInput.value + "T00:00") : null;
+  const endDate = endDateInput.value ? new Date(endDateInput.value + "T23:59") : null;
   const startHour = parseInt(startHourInput.value);
   const endHour = parseInt(endHourInput.value);
 
-  filteredCoords = [];
-  filteredTimestamps = [];
-
-  for (let i = 0; i < timestamps.length; i++) {
-    const t = timestamps[i];
+  filteredPoints = allPoints.filter(p => {
+    const t = p.time;
     const hour = t.getHours();
-    const [lat, lon] = coords[i];
 
-    // Date range filter
-    if (startDateVal && t < startDateVal) continue;
-    if (endDateVal && t > endDateVal) continue;
+    if (startDate && t < startDate) return false;
+    if (endDate && t > endDate) return false;
+    if (hour < startHour || hour > endHour) return false;
+    if (p.lat < BOUNDS[0] || p.lat > BOUNDS[1]) return false;
+    if (p.lon < BOUNDS[2] || p.lon > BOUNDS[3]) return false;
 
-    // Hour range filter
-    if (hour < startHour || hour > endHour) continue;
+    return true;
+  });
 
-    // --- LOCATION FILTER ---
-    if (lat < BOUNDS[0] || lat > BOUNDS[1] || lon < BOUNDS[2] || lon > BOUNDS[3]) continue;
-
-    // Skip if location is identical to previous accepted point
-if (filteredCoords.length > 0) {
-    const [prevLat, prevLon] = filteredCoords[filteredCoords.length - 1];
-    if (prevLat === lat && prevLon === lon) continue;
+  redraw();
 }
 
-filteredCoords.push([lat, lon]);
-filteredTimestamps.push(t);
-}
+/* -----------------------------------------------------
+   Redraw map + marker
+----------------------------------------------------- */
+function redraw() {
+  if (movingMarker) {
+    map.removeLayer(movingMarker);
+    movingMarker = null;
+  }
 
-
-  redrawMap();
-}
-
-// Redraw polyline and markers
-function redrawMap() {
-  if (polyline) map.removeLayer(polyline);
-  if (marker) { map.removeLayer(marker); marker = null; }
-  if (startMarker) map.removeLayer(startMarker);
-  if (endMarker) map.removeLayer(endMarker);
-
-  if (filteredCoords.length === 0) {
-    tsLabel.textContent = "No data for this selection";
+  if (filteredPoints.length === 0) {
+    tsLabel.textContent = "No data";
     slider.max = 0;
-    slider.value = 0;
     return;
   }
 
-  polyline = L.polyline(filteredCoords, {color: 'blue', weight: 3}).addTo(map);
-  map.fitBounds(polyline.getBounds());
-
-  // Start and end markers
-  startMarker = L.marker(filteredCoords[0], {icon: startIcon}).addTo(map);
-  endMarker = L.marker(filteredCoords[filteredCoords.length - 1], {icon: endIcon}).addTo(map);
-
   slider.min = 0;
-  slider.max = filteredCoords.length - 1;
+  slider.max = filteredPoints.length - 1;
   slider.value = 0;
 
   updateMarker(0);
 }
 
-// Update moving marker
+/* -----------------------------------------------------
+   Update marker
+----------------------------------------------------- */
 function updateMarker(i) {
-  if (!filteredCoords[i]) return;
+  const p = filteredPoints[i];
+  if (!p) return;
 
-  if (!marker) marker = L.marker(filteredCoords[i]).addTo(map);
-  else marker.setLatLng(filteredCoords[i]);
+  if (!movingMarker) {
+    movingMarker = L.marker([p.lat, p.lon]).addTo(map);
+  } else {
+    movingMarker.setLatLng([p.lat, p.lon]);
+  }
 
-  const t = filteredTimestamps[i];
+  if (p.type === "image")
+    movingMarker.bindPopup(`<img src="${p.url}" width="200">`).openPopup();
+  else
+    movingMarker.closePopup();
 
-  // Separate date and time for readability
-  const dateStr = t.toLocaleDateString();
-  const timeStr = t.toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  });
+  const dateStr = p.time.toLocaleDateString();
+  const timeStr = p.time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
   tsLabel.innerHTML = `
     <div class="date-part">${dateStr}</div>
@@ -237,17 +200,25 @@ function updateMarker(i) {
   `;
 }
 
-// Slider control
-slider.addEventListener("input", () => {
-  updateMarker(parseInt(slider.value));
-});
-
-// Event listeners for filters
+/* -----------------------------------------------------
+   Events
+----------------------------------------------------- */
+slider.addEventListener("input", () => updateMarker(parseInt(slider.value)));
 startDateInput.addEventListener("change", applyFilters);
 endDateInput.addEventListener("change", applyFilters);
 startHourInput.addEventListener("change", applyFilters);
 endHourInput.addEventListener("change", applyFilters);
 
+/* -----------------------------------------------------
+   Main load
+----------------------------------------------------- */
+(async () => {
+  await loadTrackPoints();
+  await loadImageExif();
+  mergePoints();
+  applyFilters();
+})();
 </script>
+
 </body>
 </html>
