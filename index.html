@@ -94,7 +94,7 @@ const MEDIA_API_URL = "https://script.google.com/macros/s/AKfycbyc9joIuKOjZZZ5sN
 // Leaflet map
 const map = L.map('map').setView([1.298, 103.776], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-map.addLayer(mediaCluster);
+
 
 // Raw data arrays
 let mediaCluster = L.markerClusterGroup({
@@ -106,7 +106,7 @@ let mediaItems = [];
 let mediaMarkers = [];
 let coords = [];
 let timestamps = [];
-
+map.addLayer(mediaCluster);
 // Filtered arrays
 let filteredCoords = [];
 let filteredTimestamps = [];
@@ -198,9 +198,6 @@ function findNearestLocation(targetTime) {
   return bestIndex >= 0 ? coords[bestIndex] : null;
 }
 function placeMediaMarkers() {
-const isImage =
-  item.mimeType?.startsWith("image/") ||
-  /\.(jpe?g|png|gif|webp)$/i.test(item.downloadUrl);
   // Clear old markers
   mediaCluster.clearLayers();
 mediaMarkers = [];
@@ -208,6 +205,7 @@ mediaMarkers = [];
   mediaItems.forEach(item => {
     let lat = item.latitude;
     let lon = item.longitude;
+
 
     // If no GPS, use nearest timeline location
     if (lat == null || lon == null) {
@@ -227,6 +225,9 @@ mediaMarkers = [];
       lon < BOUNDS[2] || lon > BOUNDS[3]
     ) return;
 
+const isImage =
+  item.mimeType?.startsWith("image/") ||
+  /\.(jpe?g|png|gif|webp)$/i.test(item.downloadUrl);
 const previewHtml = isImage
   ? `<img src="${item.downloadUrl}" alt="${item.name || 'image'}" />`
   : "";
