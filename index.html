@@ -228,8 +228,13 @@ mediaMarkers = [];
 const isImage =
   item.mimeType?.startsWith("image/") ||
   /\.(jpe?g|png|gif|webp)$/i.test(item.downloadUrl);
-const previewHtml = isImage
-  ? `<img src="${item.downloadUrl}" alt="${item.name || 'image'}" />`
+
+const thumbUrl = item.fileId
+  ? `https://drive.google.com/thumbnail?id=${item.fileId}&sz=w400`
+  : null;
+
+const previewHtml = thumbUrl
+  ? `<img src="${thumbUrl}" loading="lazy">`
   : "";
 
 const popupHtml = `
