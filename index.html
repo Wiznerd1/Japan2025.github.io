@@ -332,11 +332,11 @@ const isImage =
   /\.(jpe?g|png|gif|webp)$/i.test(item.downloadUrl);
 
 const thumbUrl = item.fileId
-  ? `https://drive.google.com/thumbnail?id=${item.fileId}&sz=w400`
+  ? `https://drive.google.com/thumbnail?id=${item.fileId}&sz=w256`
   : null;
 
 const previewHtml = thumbUrl
-  ? `<img src="${thumbUrl}" loading="lazy">`
+  ? `<img data-src="${thumbUrl}" style="display:none">`
   : "";
 
 const popupHtml = `
@@ -352,9 +352,13 @@ const popupHtml = `
 })
       .bindPopup(popupHtml);
 marker.on("popupopen", e => {
-  const imgs = e.popup.getElement().querySelectorAll("img");
+  const imgs = e.popup.getElement().querySelectorAll("img[data-src]");
   imgs.forEach(img => {
-    img.onload = () => e.popup.update();
+    if (!img.src) {
+      img.src = img.dataset.src;
+      img.style.display = "block";
+      img.onload = () => e.popup.update();
+    }
   });
 });
 mediaCluster.addLayer(marker);
