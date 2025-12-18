@@ -8,6 +8,17 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"
+/>
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"
+/>
+
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
 <style>
   #map { height: 70vh; }
   #controls {
@@ -15,6 +26,15 @@
     margin: 10px auto;
     text-align: center;
   }
+.media-popup img {
+  max-width: 200px;
+  max-height: 150px;
+  width: auto;
+  height: auto;
+  display: block;
+  margin-bottom: 6px;
+  border-radius: 6px;
+}
   #controls input {
     margin: 5px;
     padding: 5px;
@@ -74,8 +94,14 @@ const MEDIA_API_URL = "https://script.google.com/macros/s/AKfycbyc9joIuKOjZZZ5sN
 // Leaflet map
 const map = L.map('map').setView([1.298, 103.776], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+map.addLayer(mediaCluster);
 
 // Raw data arrays
+let mediaCluster = L.markerClusterGroup({
+  spiderfyOnMaxZoom: true,
+  showCoverageOnHover: false,
+  maxClusterRadius: 40
+});
 let mediaItems = [];
 let mediaMarkers = [];
 let coords = [];
@@ -172,9 +198,12 @@ function findNearestLocation(targetTime) {
   return bestIndex >= 0 ? coords[bestIndex] : null;
 }
 function placeMediaMarkers() {
+const isImage =
+  item.mimeType?.startsWith("image/") ||
+  /\.(jpe?g|png|gif|webp)$/i.test(item.downloadUrl);
   // Clear old markers
-  mediaMarkers.forEach(m => map.removeLayer(m));
-  mediaMarkers = [];
+  mediaCluster.clearLayers();
+mediaMarkers = [];
 
   mediaItems.forEach(item => {
     let lat = item.latitude;
@@ -198,14 +227,27 @@ function placeMediaMarkers() {
       lon < BOUNDS[2] || lon > BOUNDS[3]
     ) return;
 
-    const marker = L.marker([lat, lon])
-      .addTo(map)
-      .bindPopup(`
-        <strong>${item.name || "Media"}</strong><br>
-        <a href="${item.downloadUrl}" target="_blank">Download</a><br>
-        ${item.exifTime || item.createdTime || ""}
-      `);
+const previewHtml = isImage
+  ? `<img src="${item.downloadUrl}" alt="${item.name || 'image'}" />`
+  : "";
 
+const popupHtml = `
+  <div class="media-popup">
+    ${previewHtml}
+    <strong>${item.name || "Media"}</strong><br>
+    <a href="${item.downloadUrl}" target="_blank">Open</a><br>
+    <small>${item.exifTime || item.createdTime || ""}</small>
+  </div>
+`;
+    const marker = L.marker([lat, lon])
+      .bindPopup(popupHtml);
+marker.on("popupopen", e => {
+  const imgs = e.popup.getElement().querySelectorAll("img");
+  imgs.forEach(img => {
+    img.onload = () => e.popup.update();
+  });
+});
+mediaCluster.addLayer(marker);
     mediaMarkers.push(marker);
   });
 }
