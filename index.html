@@ -357,7 +357,6 @@ marker.on("popupopen", e => {
     if (!img.src) {
       img.src = img.dataset.src;
       img.style.display = "block";
-      img.onload = () => e.popup.update();
     }
   });
 });
