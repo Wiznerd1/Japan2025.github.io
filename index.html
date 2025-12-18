@@ -343,7 +343,9 @@ const popupHtml = `
   <div class="media-popup">
     ${previewHtml}
     <strong>${item.name || "Media"}</strong><br>
-    <a href="${item.downloadUrl}" target="_blank">Open</a><br>
+    <a href="https://drive.google.com/uc?export=view&id=${item.fileId}" target="_blank">
+      View full quality
+    </a><br>
     <small>${item.exifTime || item.createdTime || ""}</small>
   </div>
 `;
