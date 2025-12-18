@@ -26,6 +26,56 @@
     margin: 10px auto;
     text-align: center;
   }
+.map-legend {
+  background: white;
+  padding: 10px 12px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.legend-title {
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.legend-item img {
+  width: 16px;
+  height: 26px;
+  margin-right: 6px;
+}
+
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 6px;
+}
+
+.legend-dot.photo {
+  background: #ff6b6b;
+  border: 2px solid white;
+}
+
+.legend-dot.current {
+  background: #3388ff;
+  border: 2px solid white;
+}
+
+.legend-line {
+  width: 18px;
+  height: 3px;
+  background: #3388ff;
+  margin-right: 6px;
+}
 .media-popup img {
   max-width: 200px;
   max-height: 150px;
@@ -102,6 +152,41 @@ let mediaCluster = L.markerClusterGroup({
   showCoverageOnHover: false,
   maxClusterRadius: 40
 });
+const legend = L.control({ position: "bottomright" });
+
+legend.onAdd = function () {
+  const div = L.DomUtil.create("div", "map-legend");
+
+  div.innerHTML = `
+    <div class="legend-title">Legend</div>
+
+    <div class="legend-item">
+      <span class="legend-dot photo"></span> Photo / Media
+    </div>
+
+    <div class="legend-item">
+      <img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png">
+      Trip Start
+    </div>
+
+    <div class="legend-item">
+      <img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png">
+      Trip End
+    </div>
+
+    <div class="legend-item">
+      <span class="legend-dot current"></span> Current Position
+    </div>
+
+    <div class="legend-item">
+      <span class="legend-line"></span> Travel Path
+    </div>
+  `;
+
+  return div;
+};
+
+legend.addTo(map);
 let mediaItems = [];
 let mediaMarkers = [];
 let coords = [];
