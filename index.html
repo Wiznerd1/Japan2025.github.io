@@ -69,12 +69,15 @@
 <script>
 const BOUNDS = [25, 90, 46, 145];
 const TXT_URL = "https://raw.githubusercontent.com/Wiznerd1/Japan2025.github.io/main/location_log.txt";
+const MEDIA_API_URL = "https://script.google.com/macros/s/AKfycbyc9joIuKOjZZZ5sNc_gEsHC1-V6ypyALjsAOEmaYRLNwFUaQvpsbfhRwunAdI0af3i/exec";
 
 // Leaflet map
 const map = L.map('map').setView([1.298, 103.776], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 // Raw data arrays
+let mediaItems = [];
+let mediaMarkers = [];
 let coords = [];
 let timestamps = [];
 
@@ -145,9 +148,68 @@ fetch(TXT_URL)
     }
 
     applyFilters();
+fetch(MEDIA_API_URL)
+  .then(res => res.json())
+  .then(data => {
+    mediaItems = data;
+    placeMediaMarkers();
+  });
   });
 
 // Filter function
+function findNearestLocation(targetTime) {
+  let bestIndex = -1;
+  let smallestDiff = Infinity;
+
+  for (let i = 0; i < timestamps.length; i++) {
+    const diff = Math.abs(timestamps[i] - targetTime);
+    if (diff < smallestDiff) {
+      smallestDiff = diff;
+      bestIndex = i;
+    }
+  }
+
+  return bestIndex >= 0 ? coords[bestIndex] : null;
+}
+function placeMediaMarkers() {
+  // Clear old markers
+  mediaMarkers.forEach(m => map.removeLayer(m));
+  mediaMarkers = [];
+
+  mediaItems.forEach(item => {
+    let lat = item.latitude;
+    let lon = item.longitude;
+
+    // If no GPS, use nearest timeline location
+    if (lat == null || lon == null) {
+      const timeStr = item.exifTime || item.createdTime;
+      if (!timeStr) return;
+
+      const nearest = findNearestLocation(new Date(timeStr));
+      if (!nearest) return;
+
+      lat = nearest[0];
+      lon = nearest[1];
+    }
+
+    // Bounds check (reuse your existing constraint)
+    if (
+      lat < BOUNDS[0] || lat > BOUNDS[1] ||
+      lon < BOUNDS[2] || lon > BOUNDS[3]
+    ) return;
+
+    const marker = L.marker([lat, lon])
+      .addTo(map)
+      .bindPopup(`
+        <strong>${item.name || "Media"}</strong><br>
+        <a href="${item.downloadUrl}" target="_blank">Download</a><br>
+        ${item.exifTime || item.createdTime || ""}
+      `);
+
+    mediaMarkers.push(marker);
+  });
+}
+
 function applyFilters() {
   const startDateVal = startDateInput.value ? new Date(startDateInput.value + "T00:00:00") : null;
   const endDateVal = endDateInput.value ? new Date(endDateInput.value + "T23:59:59") : null;
