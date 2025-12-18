@@ -135,6 +135,23 @@ const endIcon = L.icon({
     popupAnchor: [1, -34],
     shadowSize: [41, 41]
 });
+function photoIcon(color = "#ff6b6b") {
+  return L.divIcon({
+    className: "",
+    html: `
+      <div style="
+        width: 16px;
+        height: 16px;
+        background: ${color};
+        border: 2px solid white;
+        border-radius: 50%;
+        box-shadow: 0 0 4px rgba(0,0,0,0.4);
+      "></div>
+    `,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8]
+  });
+}
 
 // UI elements
 let slider = document.getElementById("timeSlider");
@@ -245,7 +262,9 @@ const popupHtml = `
     <small>${item.exifTime || item.createdTime || ""}</small>
   </div>
 `;
-    const marker = L.marker([lat, lon])
+    const marker = L.marker([lat, lon], {
+  icon: photoIcon("#ff6b6b")
+})
       .bindPopup(popupHtml);
 marker.on("popupopen", e => {
   const imgs = e.popup.getElement().querySelectorAll("img");
