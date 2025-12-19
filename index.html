@@ -76,6 +76,33 @@
   background: #3388ff;
   margin-right: 6px;
 }
+/* Mobile Drive Warning */
+#mobile-warning {
+  display: none;
+  background: #d93025;
+  color: white;
+  padding: 10px 14px;
+  font-weight: bold;
+  text-align: center;
+  cursor: pointer;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+#mobile-warning span {
+  text-decoration: underline;
+}
+
+#mobile-warning-details {
+  display: none;
+  background: #fff5f5;
+  color: #333;
+  padding: 12px 14px;
+  border-bottom: 2px solid #d93025;
+  font-size: 14px;
+  line-height: 1.4;
+}
 .media-popup img {
   max-width: 200px;
   max-height: 150px;
@@ -108,6 +135,23 @@
 </style>
 </head>
 <body>
+
+<div id="mobile-warning">
+  ⚠️ Mobile users: Media may appear low quality
+  <button id="dismiss-warning" title="Dismiss">✕</button>
+</div>
+
+<div id="mobile-warning-details">
+  <strong>Why this happens:</strong><br>
+  On some phones, Google Drive is set to automatically open links in the Drive app.
+  When this happens, images and videos may appear in reduced quality or as previews only.<br><br>
+
+  <strong>How to view full quality:</strong>
+  <ul>
+    <li>Open this site on a desktop browser, or</li>
+    <li>Disable “Open supported links” for Google Drive in your phone’s app settings</li>
+  </ul>
+</div>
 
 <div id="map"></div>
 
@@ -466,6 +510,22 @@ startDateInput.addEventListener("change", applyFilters);
 endDateInput.addEventListener("change", applyFilters);
 startHourInput.addEventListener("change", applyFilters);
 endHourInput.addEventListener("change", applyFilters);
+<script>
+// Simple mobile detection
+const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+if (isMobile) {
+  const warning = document.getElementById("mobile-warning");
+  const details = document.getElementById("mobile-warning-details");
+
+  warning.style.display = "block";
+
+  warning.addEventListener("click", () => {
+    const isOpen = details.style.display === "block";
+    details.style.display = isOpen ? "none" : "block";
+  });
+}
+</script>
 
 </script>
 </body>
