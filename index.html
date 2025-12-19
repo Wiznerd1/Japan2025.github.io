@@ -544,7 +544,7 @@ if (isMobile && !dismissed) {
   // Dismiss permanently
   dismissBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    localStorage.setItem("driveWarningDismissed", "true");
+    sessionStorage.setItem("driveWarningDismissed", "true");
     warning.style.display = "none";
     details.style.display = "none";
   });
