@@ -76,6 +76,19 @@
   background: #3388ff;
   margin-right: 6px;
 }
+#mobile-warning button {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+  margin-left: 10px;
+  cursor: pointer;
+}
+
+#mobile-warning button:hover {
+  opacity: 0.8;
+}
 /* Mobile Drive Warning */
 #mobile-warning {
   display: none;
@@ -137,7 +150,7 @@
 <body>
 
 <div id="mobile-warning">
-  ⚠️ Mobile users: Media may appear low quality
+   Mobile users: Media may appear low quality
   <button id="dismiss-warning" title="Dismiss">✕</button>
 </div>
 
@@ -510,22 +523,32 @@ startDateInput.addEventListener("change", applyFilters);
 endDateInput.addEventListener("change", applyFilters);
 startHourInput.addEventListener("change", applyFilters);
 endHourInput.addEventListener("change", applyFilters);
-<script>
-// Simple mobile detection
+// ===== Mobile Google Drive quality warning =====
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const dismissed = localStorage.getItem("driveWarningDismissed");
 
-if (isMobile) {
+if (isMobile && !dismissed) {
   const warning = document.getElementById("mobile-warning");
   const details = document.getElementById("mobile-warning-details");
+  const dismissBtn = document.getElementById("dismiss-warning");
 
   warning.style.display = "block";
 
-  warning.addEventListener("click", () => {
-    const isOpen = details.style.display === "block";
-    details.style.display = isOpen ? "none" : "block";
+  // Toggle explanation when banner is clicked (but not the X)
+  warning.addEventListener("click", (e) => {
+    if (e.target === dismissBtn) return;
+    details.style.display =
+      details.style.display === "block" ? "none" : "block";
+  });
+
+  // Dismiss permanently
+  dismissBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    localStorage.setItem("driveWarningDismissed", "true");
+    warning.style.display = "none";
+    details.style.display = "none";
   });
 }
-</script>
 
 </script>
 </body>
